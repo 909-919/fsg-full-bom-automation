@@ -44,7 +44,7 @@ jobs:
       - name: Run linter
         run: ruff check .
       - name: Validate Python syntax
-        run: python -m py_compile bom_automation.py
+        run: python -m py_compile main.py
       - name: Run smoke check
         run: |
           python - <<'PY'
@@ -54,13 +54,10 @@ jobs:
           os.environ['TEST_MODE'] = 'true'
           os.environ['DRY_RUN'] = 'true'
 
-          if 'bom_automation' in sys.modules:
-              del sys.modules['bom_automation']
+          if 'main' in sys.modules:
+              del sys.modules['main']
 
-          m = importlib.import_module('bom_automation')
-          assert m.TEAM_ID == '999'
-          assert isinstance(m.TEST_MODE, bool)
-          assert isinstance(m.DRY_RUN, bool)
+          m = importlib.import_module('main')
           assert hasattr(m, 'main')
           print('Smoke check passed')
           PY

@@ -40,34 +40,35 @@ python -m venv .venv
 
 # Windows
 .\.venv\Scripts\activate
-
 # macOS / Linux
 source .venv/bin/activate
 ```
 Then
 ```bash
-pip install pandas openpyxl playwright python-dotenv
-playwright install chromium
-```
-OR
-```bash
 pip install -r requirements.txt
+playwright install chromium
 ```
 
 ### 2. Configure
 
 ```bash
+# macOS / Linux
 cp .env.example .env
+
+# Windows PowerShell
+copy .env.example .env
 ```
 
 Edit `.env` with your FSG credentials and team ID:
 
 ```env
+# Make sure to at least set these, before running the script! 
 FSG_USERNAME=your_username
 FSG_PASSWORD=your_password
 TEAM_ID=YOUR_TEAM_ID
 TEST_MODE=true
-DRY_RUN=false
+DRY_RUN=true
+# More info on each and more variables is in the .env file itself.
 ```
 
 > **🔑 Finding your Team ID:** Open your BOM page on the FSG website. The URL looks like:
@@ -79,15 +80,16 @@ DRY_RUN=false
 Place your `.xlsx` BOM files in the `BOMs/` folder:
 
 > [!TIP]
-> For best results, use the provided `BOM_template.xlsx` as a starting point. Make sure to follow the required column headers and formatting (or edit the script if your format is different).
+> For best results, use the provided `BOM_Example_EFRxx.xlsx` as a starting point. Make sure to follow the required column headers and formatting (or edit the script if your format is different).
 
 ```
 project/
 ├── BOMs/
 │   ├── BOM_BR_MyTeam.xlsx
 │   ├── BOM_SU_MyTeam.xlsx
+│   ├── BOM_Example_EFRxx.xlsx
 │   └── ...
-├── bom_automation.py
+├── main.py
 ├── .env
 └── ...
 ```
@@ -95,16 +97,14 @@ project/
 ### 4. Run
 
 ```bash
-python bom_automation.py
+python main.py
 ```
 
 The script will:
 1. Let you pick an Excel file
 2. Show you which systems are in the file
-3. Open a browser and log you in
-4. Print all available assembly options from the FSG dropdown
-5. Start uploading (only rows matching `ALLOWED_ASSEMBLIES`, if configured)
-6. Print a summary of what was uploaded, skipped, or failed
+3. Open a browser, log you in, and start uploading (or simulate if `DRY_RUN=true`)
+4. Print a summary of what was uploaded, skipped, or failed
 
 ---
 
@@ -120,9 +120,6 @@ Your Excel file should have these column headers (case-insensitive):
 | `part_quantity` | ❌ | Quantity (number) |
 | `make o. buy` | ❌ | `m` for make, `b` for buy |
 | `part_comments` | ❌ | Comments (free text) |
-
-The FSG form limits `part` to 25 characters and `part_comments` to 40 characters.
-Rows exceeding those limits are skipped and logged as errors.
 
 ---
 
@@ -145,15 +142,15 @@ Rows exceeding those limits are skipped and logged as errors.
 
 ## 🎨 Row Colour Coding
 
-The script reads the background colour of the **first cell** in each row:
+The script reads the background colour of the first few cells in each row (up to the first 5 columns). It supports common hex formats and also recognizes close shades of green and red.
 
 | Colour | Behaviour |
 |---|---|
-| 🟢 **Green** (`#00FF00`) | Skipped — already uploaded |
-| 🔴 **Red** (`#FF0000`) | Skipped — do not upload |
+| 🟢 **Green-like** | Skipped — already uploaded |
+| 🔴 **Red-like** | Skipped — do not upload |
 | ⬜ **No colour** | Processed normally |
 
-> Use these colours in your Excel to control which rows get uploaded.
+> Use a green-like fill to mark rows as already uploaded, or a red-like fill to exclude rows from processing.
 
 ---
 
@@ -171,46 +168,18 @@ The FSG website has fixed assembly names. If your Excel uses a slightly differen
 | `tire` / `tyre` | Tires |
 | ... and many more | |
 
-> You can add your own mappings by editing the `ASSEMBLY_REMAP` dictionary in `bom_automation.py`.
->
-> After login, the script prints all available assembly labels from the FSG site.
-> Use the `ALLOWED_ASSEMBLIES` environment variable in `.env` to restrict uploads
-> to a whitelist of exact assembly names.
->
-> If `ALLOWED_ASSEMBLIES` is not set, the script will prompt you with a numbered
-> checklist after login. Enter numbers (comma-separated) to select assemblies to
-> upload, or press ENTER to allow all assemblies.
->
-> Mappings in `ASSEMBLY_REMAP` are still applied automatically before matching.
+> You can add your own mappings by editing `BOMs/config.yaml`.
 
 ---
 
 ## 🔒 Duplicate Detection
 
-Before uploading, the script reads **all existing parts** from the FSG website. It builds a key from `System + Assembly + Part Name` and compares each new row against it.
+Before uploading, the script reads existing parts from the FSG website BOM table and compares each candidate row to the scraped site data.
 
-- **If a match is found**, the row is logged as `SKIP` and not uploaded.
-- **If you run the script twice**, nothing will be duplicated.
-- **During the same run**, successfully uploaded parts are also tracked so they can't be accidentally re-added.
-
----
-
-## ⚙️ Configuration Reference
-
-All settings are controlled via the `.env` file. See [`.env.example`](.env.example) for the full list.
-
-| Variable | Default | Description |
-|---|---|---|
-| `FSG_USERNAME` | *(required)* | Your FSG login username |
-| `FSG_PASSWORD` | *(required)* | Your FSG login password |
-| `TEAM_ID` | *(required)* | Your team's BOM page ID — must be set before running |
-| `TEST_MODE` | `true` | Limit uploads to first N parts — recommended default for safety |
-| `DRY_RUN` | `false` | When `true`, no uploads are performed; script only logs actions |
-| `TEST_LIMIT` | `3` | Number of parts in test mode |
-| `DEFAULT_SYSTEM` | *(empty)* | Auto-select a system (e.g. `BR`) |
-| `ALLOWED_ASSEMBLIES` | *(empty)* | Optional comma-separated exact assembly labels to upload |
-| `BOMS_DIR` | `BOMs` | Folder containing Excel files |
-| `LOG_FILE` | `bom_log.txt` | Output log filename |
+- The comparison is based primarily on normalized part names.
+- If both Excel and site rows include assembly names, the match also checks normalized assembly names.
+- If a duplicate is detected, the row is logged as `SKIP` and not uploaded.
+- Running the script again will avoid re-uploading parts already present on the site.
 
 ---
 
@@ -234,7 +203,7 @@ Every run appends to `bom_log.txt`:
 | Problem | Solution |
 |---|---|
 | **Login fails** | The browser will still open — log in manually, navigate to the BOM page, then press Enter |
-| **"Assembly not found"** | Add a mapping to `ASSEMBLY_REMAP` in the script |
+| **"Assembly not found"** | Add a mapping to `BOMs/config.yaml` |
 | **Timeout errors** | Can happen if the FSG server is slow. Re-run — duplicates are safe |
 | **Column not found** | Ensure your Excel headers match: `system`, `assembly`, `part` |
 | **No Excel files found** | Place `.xlsx` files in the `BOMs/` folder |

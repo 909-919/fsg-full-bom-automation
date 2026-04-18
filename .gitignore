@@ -6,6 +6,8 @@
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # Development/Testing scripts
 /scripts
@@ -16,6 +18,7 @@ bom_log.txt
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
 
 # Debug / scratchpad
 *.html
@@ -42,3 +45,4 @@ pip-wheel-metadata/
 # Data files
 /BOMs/*
 !/BOMs/BOM_Example_EFRxx.xlsx
+!/BOMs/config.yaml
