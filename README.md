@@ -46,8 +46,10 @@ source .venv/bin/activate
 Then
 ```bash
 pip install -r requirements.txt
-playwright install chromium
+python -m playwright install chromium
 ```
+
+> Note: `requirements.txt` installs the Playwright Python package. The browser runtime itself still needs a separate install step.
 
 ### 2. Configure
 

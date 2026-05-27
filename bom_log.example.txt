@@ -1,0 +1,17 @@
+2026-05-27 22:33:49 | INFO  | ============================================================
+2026-05-27 22:33:49 | INFO  | FSG CCBOM Automation — Starting
+Row 10: Action=None, Final Comment='generative optimized frame to connect mono and FW'
+Row 11: Action=None, Final Comment='generative optimized frame to connect mono and FW'
+Row 23: Action=None, Final Comment='thread in the flaps to mount FW Connection (M4)'
+Row 24: Action=None, Final Comment='selfmade smaller version of the bigHead (M3)'
+2026-05-27 22:34:05 | INFO  | ============================================================
+2026-05-27 22:34:05 | INFO  | FSG CCBOM Automation — Starting
+Row 16: Action=Skip (keep as is), Final Comment='Headrest upper STEELplate (Anschraubpunkt)'
+Row 36: Action=Skip (keep as is), Final Comment='At the front above axle, covers suspension'
+2026-05-27 22:34:14 | INFO  | Excel Scan Summary for 'BOM_Chassis&MS_EFR18 (1).xlsx':
+2026-05-27 22:34:14 | INFO  |   • Total rows found:     82
+2026-05-27 22:34:14 | INFO  |   • Empty/Invalid rows:   1
+2026-05-27 22:34:14 | INFO  |   • Example rows skipped: 1
+2026-05-27 22:34:14 | INFO  |   • System mismatch:      24 (filtered by FR)
+2026-05-27 22:34:14 | INFO  |   • Already done (color): 0
+2026-05-27 22:34:14 | INFO  |   • Valid parts found:    56

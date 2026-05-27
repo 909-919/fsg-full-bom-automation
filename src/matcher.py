@@ -1,7 +1,8 @@
-import re
-import yaml
 import os
-from typing import List, Optional
+import re
+
+import yaml
+
 
 class AssemblyMatcher:
     def __init__(self, config_path: str = "BOMs/config.yaml"):
@@ -10,10 +11,15 @@ class AssemblyMatcher:
     def load_config(self, path: str):
         if not os.path.exists(path):
             raise FileNotFoundError(f"Configuration file not found: {path}")
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             data = yaml.safe_load(f)
             self.ASSEMBLY_REMAP = data.get('assembly_mappings', {})
             self.SYSTEM_MAP = data.get('system_map', {})
+            self.SYSTEM_MAPPINGS = data.get('system_mappings', {}) or {}
+
+    def normalize_system_code(self, raw_code: str) -> str:
+        code = str(raw_code).strip().upper()
+        return self.SYSTEM_MAPPINGS.get(code, code)
 
     @staticmethod
     def _normalize(s: str) -> str:
@@ -25,7 +31,7 @@ class AssemblyMatcher:
         p = self._normalize(part)
         return f"{s}_{a}_{p}"
 
-    def resolve_label(self, target: str, site_options: List[str], allowed: Optional[List[str]] = None) -> Optional[str]:
+    def resolve_label(self, target: str, site_options: list[str], allowed: list[str] | None = None) -> str | None:
         target_clean = target.strip()
         resolved = self.ASSEMBLY_REMAP.get(target_clean.lower(), target_clean).strip()
         target_lower = resolved.lower()

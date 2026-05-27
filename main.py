@@ -1,6 +1,8 @@
 import sys
+
 from src.config import Config
 from src.orchestrator import BOMAutomation
+
 
 def main():
     config = Config()

@@ -1,9 +1,10 @@
-import os
 import argparse
+import os
+from dataclasses import dataclass, field
+
 import keyring
 from dotenv import load_dotenv
-from dataclasses import dataclass, field
-from typing import List
+
 
 @dataclass
 class Config:
@@ -14,7 +15,7 @@ class Config:
     test_limit: int = 3
     dry_run: bool = False
     default_system: str = ""
-    allowed_assemblies: List[str] = field(default_factory=list)
+    allowed_assemblies: list[str] = field(default_factory=list)
     log_file: str = "bom_log.txt"
     boms_dir: str = "BOMs"
     

@@ -1,6 +1,13 @@
-import pytest
+import os
+import sys
+
 import openpyxl
-from fsg_bom.excel import ExcelProcessor
+import pytest
+
+# Ensure the src directory is in the path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.excel import ExcelProcessor
+
 
 @pytest.fixture
 def sample_excel(tmp_path):

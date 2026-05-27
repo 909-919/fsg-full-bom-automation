@@ -1,10 +1,12 @@
 import threading
 from datetime import datetime
+
 from rich.console import Console, Group
-from rich.panel import Panel
-from rich.table import Table
 from rich.live import Live
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+
 
 class UI:
     def __init__(self, log_file: str):

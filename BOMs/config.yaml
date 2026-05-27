@@ -32,6 +32,15 @@ assembly_mappings:
   wheel bearing: "Wheel Bearings"
   rim: "Wheels"
   wheel: "Wheels"
+  rearwing: "Aerodynamics Rear Wing"
+  frontwing: "Aerodynamics Front Wing"
+  undertray: "Aerodynamics Underbody"
+  body attachments: "Body Attachments"
+  fronthoop: "Front Hoop"
+  mainhoop: "Main Hoop"
+  monocoque: "Monocoque"
+  front end: "Front Part Frame"
+  nose: "Impact Attenuator"
 
 system_map:
   AT: "AT - Autonomous System"
@@ -44,3 +53,9 @@ system_map:
   ST: "ST - Steering System"
   SU: "SU - Suspension System"
   WT: "WT - Wheels, Wheel Bearings and Tires"
+
+system_mappings:
+  "C&B": "FR"
+  "CB": "FR"
+  "AS": "AT"
+  "WH": "WT"

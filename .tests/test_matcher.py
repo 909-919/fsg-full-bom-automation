@@ -1,4 +1,8 @@
-from fsg_bom.matcher import AssemblyMatcher
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.matcher import AssemblyMatcher
+
 
 def test_resolve_label_exact():
     matcher = AssemblyMatcher()

@@ -2,6 +2,7 @@ import os
 import glob
 import pandas as pd
 import openpyxl
+import questionary
 from typing import List, Dict, Any, Optional, Tuple
 
 class ExcelProcessor:
@@ -97,7 +98,9 @@ class ExcelProcessor:
                 return skip
         return None
 
-    def process_file(self, filepath: str, run_system: str = "ALL") -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+    def process_file(self, filepath: str, run_system: str = "ALL", matcher: Any = None) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        target_systems = [run_system.upper()] if run_system and run_system != "ALL" else []
+            
         stats = {
             "total_excel_rows": 0,
             "empty_rows": 0,
@@ -136,6 +139,11 @@ class ExcelProcessor:
         for idx, row in df.iterrows():
             excel_row = idx + 2
             sys_val = str(row.iloc[col_map["system"]] if col_map["system"] is not None else "").strip().upper()
+            
+            # Normalize system code (e.g., "C&B" -> "FR")
+            if matcher:
+                sys_val = matcher.normalize_system_code(sys_val)
+                
             part_val = str(row.iloc[col_map["part"]] if col_map["part"] is not None else "").strip()
             
             if not sys_val or sys_val == "NAN" or not part_val or part_val == "NAN":
@@ -147,7 +155,7 @@ class ExcelProcessor:
                 stats["example_rows"] += 1
                 continue
 
-            if run_system != "ALL" and sys_val != run_system:
+            if target_systems and sys_val not in target_systems:
                 stats["system_mismatch"] += 1
                 continue
 
@@ -159,6 +167,32 @@ class ExcelProcessor:
             qty_val = str(row.iloc[col_map["quantity"]] if col_map["quantity"] is not None else "").strip()
             mb_val = str(row.iloc[col_map["makebuy"]] if col_map["makebuy"] is not None else "m").strip().lower()[:1] or "m"
             comm_val = str(row.iloc[col_map["comments"]] if col_map["comments"] is not None else "").strip().replace("nan", "")
+
+            if len(comm_val) > 40:
+                print(f"\n[!] Long comment detected at row {excel_row}:")
+                print(f"Original: {comm_val}")
+                print(f"Length: {len(comm_val)}")
+                
+                choice = questionary.select(
+                    "How would you like to handle this comment?",
+                    choices=[
+                        "Edit (with pre-fill)",
+                        "Truncate to 40 chars",
+                        "Skip (keep as is)"
+                    ]
+                ).ask()
+
+                if choice == "Edit (with pre-fill)":
+                    comm_val = questionary.text(
+                        "Enter new comment (<= 40 chars):",
+                        default=comm_val,
+                        validate=lambda text: len(text) <= 40 or "Must be 40 characters or less"
+                    ).ask()
+                elif choice == "Truncate to 40 chars":
+                    comm_val = comm_val[:40]
+                
+                with open("bom_log.txt", "a") as log:
+                    log.write(f"Row {excel_row}: Action={choice}, Final Comment='{comm_val}'\n")
 
             filtered.append({
                 "row": excel_row,

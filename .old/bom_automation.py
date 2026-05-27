@@ -15,22 +15,23 @@ Configuration:
     See .env.example for all available options.
 """
 
-import os
-import sys
 import glob
-import time
-import pandas as pd
-import openpyxl
-import re
+import os
 import random
+import re
+import sys
 import threading
+import time
 from datetime import datetime
+
+import openpyxl
+import pandas as pd
+import questionary
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
-import questionary
-from rich.table import Table
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -708,8 +709,8 @@ def main() -> None:
             page.wait_for_load_state("networkidle")
 
         page.goto(BOM_URL)
-        from rich.panel import Panel
         from rich.console import Console
+        from rich.panel import Panel
         console = Console()
         console.print(Panel(
             "Verify you are logged in and on the BOM page.\n"
@@ -937,7 +938,7 @@ def main() -> None:
 
         # ── 6. Upload loop ───────────────────────────────────────────────
         from rich.live import Live
-        from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
+        from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
         success = 0
         failed = 0

@@ -37,27 +37,20 @@ class BOMAutomation:
         filepath = next(f for f in files if os.path.basename(f) == filepath)
 
         # 2. System Selection
-        import pandas as pd
-        df_temp = pd.read_excel(filepath)
-        df_temp.columns = [str(c).strip().lower() for c in df_temp.columns]
-        
-        if "system" not in df_temp.columns:
-            self.ui.log("Excel file missing 'system' column.", "ERROR")
-            return
-            
-        systems = [str(s).upper() for s in df_temp["system"].dropna().unique() if len(str(s)) == 2]
+        # Get all possible systems from the configuration
+        all_systems = sorted(self.matcher.SYSTEM_MAP.keys())
         
         run_system = self.config.default_system
-        if not run_system or run_system not in systems:
-            choices = [questionary.Choice(f"{s} - {self.matcher.get_system_label(s)}", s) for s in systems]
-            choices.insert(0, questionary.Choice("ALL - Process everything", "ALL"))
-            run_system = self.ui.prompt_ask(questionary.select("Select system:", choices=choices))
+        if not run_system or run_system not in all_systems:
+            choices = [questionary.Choice(self.matcher.get_system_label(s), s) for s in all_systems]
+            run_system = self.ui.prompt_ask(questionary.select("Select system to process:", choices=choices))
 
         if not run_system:
+            self.ui.log("No system selected. Exiting.", "WARN")
             return
 
         # 3. Filter Rows
-        parts, stats = self.excel.process_file(filepath, run_system)
+        parts, stats = self.excel.process_file(filepath, run_system, matcher=self.matcher)
         
         # Detailed logging of Excel scan
         self.ui.log(f"Excel Scan Summary for '{os.path.basename(filepath)}':")

@@ -1,5 +1,7 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 p = None
 for f in Path('BOMs').glob('BOM_PT_EFR18*.xlsx'):
     p = f
