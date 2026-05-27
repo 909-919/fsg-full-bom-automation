@@ -1,9 +1,13 @@
-import os
 import glob
-import pandas as pd
+import os
+import shutil
+import tempfile
+from typing import Any, Dict, List, Optional, Tuple
+
 import openpyxl
+import pandas as pd
 import questionary
-from typing import List, Dict, Any, Optional, Tuple
+
 
 class ExcelProcessor:
     SKIP_COLORS = {
@@ -14,8 +18,9 @@ class ExcelProcessor:
     RED_TARGET = (255, 0, 0)
     COLOR_TOLERANCE = 110
 
-    def __init__(self, boms_dir: str):
+    def __init__(self, boms_dir: str, ui: Any = None):
         self.boms_dir = boms_dir
+        self.ui = ui
 
     def discover_files(self) -> List[str]:
         search_dir = os.path.join(os.getcwd(), self.boms_dir)
@@ -98,7 +103,7 @@ class ExcelProcessor:
                 return skip
         return None
 
-    def process_file(self, filepath: str, run_system: str = "ALL", matcher: Any = None) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    def process_file(self, filepath: str, run_system: str = "ALL", matcher: Any = None, auto_confirm: bool = False) -> tuple[list[dict[str, Any]], dict[str, int]]:
         target_systems = [run_system.upper()] if run_system and run_system != "ALL" else []
             
         stats = {
@@ -110,9 +115,30 @@ class ExcelProcessor:
             "valid_parts": 0
         }
         
-        wb = openpyxl.load_workbook(filepath, data_only=True)
+        # Bypassing file lock if needed
+        try:
+            wb = openpyxl.load_workbook(filepath, data_only=True)
+            df = pd.read_excel(filepath)
+        except PermissionError:
+            if self.ui:
+                self.ui.log(f"File '{os.path.basename(filepath)}' is locked. Attempting to read from a temporary copy...", "WARN")
+            
+            # On Windows, we must close the temp file before copying into it
+            fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
+            os.close(fd)
+            
+            try:
+                shutil.copy2(filepath, temp_path)
+                wb = openpyxl.load_workbook(temp_path, data_only=True)
+                df = pd.read_excel(temp_path)
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+
         sheet = wb.active
-        df = pd.read_excel(filepath)
         stats["total_excel_rows"] = len(df)
         
         raw_cols = [str(c).strip().lower() for c in df.columns]
@@ -179,35 +205,19 @@ class ExcelProcessor:
             mb_val = str(row.iloc[col_map["makebuy"]] if col_map["makebuy"] is not None else "m").strip().lower()[:1] or "m"
             comm_val = str(row.iloc[col_map["comments"]] if col_map["comments"] is not None else "").strip().replace("nan", "")
 
-            if len(comm_val) > 40:
-                print(f"\n[!] Long comment detected at row {excel_row}:")
-                print(f"Original: {comm_val}")
-                print(f"Length: {len(comm_val)}")
-                
-                choice = questionary.select(
-                    "How would you like to handle this comment?",
-                    choices=[
-                        "Edit (with pre-fill)",
-                        "Truncate to 40 chars",
-                        "Skip - do NOT upload"
-                    ]
-                ).ask()
-
-                if choice == "Edit (with pre-fill)":
-                    comm_val = questionary.text(
-                        "Enter new comment (<= 40 chars):",
-                        default=comm_val,
-                        validate=lambda text: len(text) <= 40 or "Must be 40 characters or less"
-                    ).ask()
-                elif choice == "Truncate to 40 chars":
-                    comm_val = comm_val[:40]
-                elif choice == "Skip - do NOT upload":
-                    with open("bom_log.txt", "a") as log:
-                        log.write(f"Row {excel_row}: Action=Skip, Original Comment='{comm_val}'\n")
+            # --- Validation: Part Name (Max 25) ---
+            if len(part_val) > 25:
+                res = self._handle_long_field(part_val, 25, "Part Name", excel_row, auto_confirm)
+                if res is None: # Skip
                     continue
-                
-                with open("bom_log.txt", "a") as log:
-                    log.write(f"Row {excel_row}: Action={choice}, Final Comment='{comm_val}'\n")
+                part_val = res
+
+            # --- Validation: Comment (Max 40) ---
+            if len(comm_val) > 40:
+                res = self._handle_long_field(comm_val, 40, "Comment", excel_row, auto_confirm)
+                if res is None: # Skip
+                    continue
+                comm_val = res
 
             filtered.append({
                 "row": excel_row,
@@ -221,3 +231,66 @@ class ExcelProcessor:
             stats["valid_parts"] += 1
 
         return filtered, stats
+
+    def _handle_long_field(self, value: str, limit: int, field_name: str, row: int, auto_confirm: bool) -> str | None:
+        """Helper to handle long text fields interactively or automatically."""
+        if auto_confirm:
+            if self.ui:
+                self.ui.log(f"Row {row}: {field_name} too long ({len(value)} > {limit}). Auto-skipping.", "WARN")
+            with open("bom_log.txt", "a") as log:
+                log.write(f"Row {row}: Action=Auto-Skip ({field_name}), Original='{value}'\n")
+            return None
+
+        from rich.console import Console
+        console = Console()
+
+        while True:
+            console.print(f"\n[bold yellow][!] {field_name} too long at row {row}[/]")
+            color = "red" if len(value) > limit else "green"
+            console.print(f"Current: [italic]{value}[/] ([{color}]{len(value)}[white]/{limit} chars)")
+            
+            choice = questionary.select(
+                f"How would you like to handle this {field_name.lower()}?",
+                choices=[
+                    "Edit (with pre-fill)",
+                    f"Truncate to {limit} chars",
+                    "Skip row - do NOT upload"
+                ]
+            ).ask()
+
+            if choice == "Edit (with pre-fill)":
+                def validate_len(text):
+                    if len(text) <= limit:
+                        return True
+                    return f"Too long! ({len(text)}/{limit} chars)"
+
+                edited = questionary.text(
+                    f"Enter new {field_name.lower()} (max {limit}):",
+                    default=value,
+                    validate=validate_len,
+                    instruction=" (use arrow keys to go back or ESC to cancel editing)"
+                ).ask()
+                
+                if edited is None: # User pressed ESC or similar
+                    continue # Loop back to choice menu
+                
+                # Check if they want to go back
+                back_confirm = questionary.confirm("Keep this edit?", default=True).ask()
+                if not back_confirm:
+                    continue
+                
+                value = edited
+                with open("bom_log.txt", "a") as log:
+                    log.write(f"Row {row}: Action=Edit ({field_name}), Final='{value}'\n")
+                return value
+
+            elif choice == f"Truncate to {limit} chars":
+                value = value[:limit]
+                with open("bom_log.txt", "a") as log:
+                    log.write(f"Row {row}: Action=Truncate ({field_name}), Final='{value}'\n")
+                return value
+
+            elif choice == "Skip row - do NOT upload":
+                with open("bom_log.txt", "a") as log:
+                    log.write(f"Row {row}: Action=Skip ({field_name}), Original='{value}'\n")
+                return None

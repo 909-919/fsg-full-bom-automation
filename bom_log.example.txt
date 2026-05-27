@@ -1,38 +1,21 @@
-2026-05-27 23:31:24 | INFO  | ============================================================
-2026-05-27 23:31:24 | INFO  | FSG CCBOM Automation — Starting
-Row 16: Action=Edit (with pre-fill), Final Comment='Headrest upper STEELplate Anschraubpunkt'
-Row 36: Action=Edit (with pre-fill), Final Comment='At front above axle - covers suspension'
-2026-05-27 23:32:23 | INFO  | Excel Scan Summary for 'BOM_Chassis&MS_EFR18 (1).xlsx':
-2026-05-27 23:32:23 | INFO  |   • Total rows found:     82
-2026-05-27 23:32:23 | INFO  |   • Empty/Invalid rows:   1
-2026-05-27 23:32:23 | INFO  |   • Example rows skipped: 7
-2026-05-27 23:32:23 | INFO  |   • System mismatch:      24 (filtered by FR)
-2026-05-27 23:32:23 | INFO  |   • Already done (color): 0
-2026-05-27 23:32:23 | INFO  |   • Valid parts found:    50
-2026-05-27 23:32:39 | INFO  | Assembly Matching Summary:
-2026-05-27 23:32:39 | INFO  |   • Parts matching selected assemblies: 49
-2026-05-27 23:32:39 | INFO  |   • Parts skipped (no assembly match): 1
-2026-05-27 23:32:39 | INFO  | Test Mode active: will attempt to upload 3 parts.
-2026-05-27 23:32:39 | INFO  | Fetching existing parts from FSG for deduplication...
-2026-05-27 23:32:41 | INFO  | Found 839 existing parts on the website.
-2026-05-27 23:32:44 |  OK   | Row 9: Created 'FH Sheet'
-2026-05-27 23:32:47 |  OK   | Row 10: Created 'FH Profile'
-2026-05-27 23:33:18 | ERROR | Row 11: Error creating 'Mainhoop Tube': Locator.select_option: Timeout 30000ms exceeded.
 Call log:
-  - waiting for locator("#DTE_Field_assembly")
-    - locator resolved to <select id="DTE_Field_assembly">…</select>
-  - attempting select option action
-    2 × waiting for element to be visible and enabled
-      - did not find some options
-    - retrying select option action
-    - waiting 20ms
-    2 × waiting for element to be visible and enabled
-      - did not find some options
-    - retrying select option action
-      - waiting 100ms
-    59 × waiting for element to be visible and enabled
-       - did not find some options
-     - retrying select option action
-       - waiting 500ms
+  - waiting for locator(".DTE_Action_Create") to be hidden
+    2 × locator resolved to visible <div class="DTE DTE_Action_Create processing">…</div>
+    41 × locator resolved to visible <div class="DTE DTE_Action_Create">…</div>
 
-2026-05-27 23:33:20 | INFO  | Automation finished.
+2026-05-28 00:19:09 | ERROR | Row 30: Error creating 'Dashboard': Page.wait_for_selector: Timeout 20000ms exceeded.
+Call log:
+  - waiting for locator(".DTE_Action_Create") to be hidden
+    2 × locator resolved to visible <div class="DTE DTE_Action_Create processing">…</div>
+    41 × locator resolved to visible <div class="DTE DTE_Action_Create">…</div>
+
+2026-05-28 00:19:16 |  OK   | Row 31: Created 'Rearlid'
+2026-05-28 00:19:23 |  OK   | Row 32: Created 'Rearlid Insert Straight'
+2026-05-28 00:19:26 |  OK   | Row 33: Created 'Rearlid Insert Corner'
+2026-05-28 00:19:31 |  OK   | Row 34: Created 'Nose'
+2026-05-28 00:19:37 |  OK   | Row 35: Created 'BMW Sticker'
+2026-05-28 00:19:45 |  OK   | Row 36: Created 'Suspension Cover Front'
+2026-05-28 00:20:07 | ERROR | Row 37: Error creating 'Suspension Cover Rear': Page.wait_for_selector: Timeout 20000ms exceeded.
+Call log:
+  - waiting for locator(".DTE_Action_Create") to be hidden
+    43 × locator resolved to visible <div class="DTE DTE_Action_Create">…</div>

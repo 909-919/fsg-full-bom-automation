@@ -12,7 +12,7 @@ class BOMAutomation:
     def __init__(self, config: Config):
         self.config = config
         self.ui = UI(config.log_file)
-        self.excel = ExcelProcessor(config.boms_dir)
+        self.excel = ExcelProcessor(config.boms_dir, ui=self.ui)
         self.matcher = AssemblyMatcher()
 
     def _smart_delay(self, seconds, jitter=0.2):
@@ -31,10 +31,21 @@ class BOMAutomation:
             self.ui.log(f"No Excel files in '{self.config.boms_dir}/'", "ERROR")
             return
             
-        filepath = self.ui.prompt_ask(questionary.select("Select BOM file:", choices=[os.path.basename(f) for f in files]))
-        if not filepath:
-            return
-        filepath = next(f for f in files if os.path.basename(f) == filepath)
+        filepath = None
+        if self.config.target_file:
+            # Try to match by basename or full path
+            for f in files:
+                if os.path.basename(f) == self.config.target_file or f == self.config.target_file:
+                    filepath = f
+                    break
+            if not filepath:
+                self.ui.log(f"Target file '{self.config.target_file}' not found.", "ERROR")
+                return
+        else:
+            selection = self.ui.prompt_ask(questionary.select("Select BOM file:", choices=[os.path.basename(f) for f in files]))
+            if not selection:
+                return
+            filepath = next(f for f in files if os.path.basename(f) == selection)
 
         # 2. System Selection
         # Get all possible systems from the configuration
@@ -50,7 +61,7 @@ class BOMAutomation:
             return
 
         # 3. Filter Rows
-        parts, stats = self.excel.process_file(filepath, run_system, matcher=self.matcher)
+        parts, stats = self.excel.process_file(filepath, run_system, matcher=self.matcher, auto_confirm=self.config.auto_confirm)
         
         # Detailed logging of Excel scan
         self.ui.log(f"Excel Scan Summary for '{os.path.basename(filepath)}':")
@@ -66,8 +77,9 @@ class BOMAutomation:
             return
 
         self.ui.show_summary(len(parts), os.path.basename(filepath), run_system, self.config.test_mode, self.config.dry_run)
-        if not self.ui.prompt_ask(questionary.confirm("Proceed with uploading?")):
-            return
+        if not self.config.auto_confirm:
+            if not self.ui.prompt_ask(questionary.confirm("Proceed with uploading?")):
+                return
 
         # 4. Browser Session
         with FSGBrowser(self.config) as browser:
@@ -75,10 +87,11 @@ class BOMAutomation:
                 self.ui.log("Manual login required. Please login and navigate to BOM page.")
             
             browser.goto_bom()
-            self.ui.console.input("\nPress ENTER when ready on BOM page...")
+            if not self.config.auto_confirm:
+                self.ui.console.input("\nPress ENTER when ready on BOM page...")
             
             # Fetch Options & Match Assemblies
-            sys_label = self.matcher.get_system_label(run_system) if run_system != "ALL" else None
+            sys_label = self.matcher.get_system_label(run_system)
             site_options = browser.fetch_site_options(sys_label)
             
             if not site_options:
@@ -88,10 +101,14 @@ class BOMAutomation:
             # Match and Whitelist
             runtime_allowed = []
             if not self.config.allowed_assemblies:
-                runtime_allowed = self.ui.prompt_ask(questionary.checkbox("Select assemblies to process:", choices=site_options))
-                if not runtime_allowed:
-                    self.ui.log("No assemblies selected. Exiting.")
-                    return
+                if not self.config.auto_confirm:
+                    runtime_allowed = self.ui.prompt_ask(questionary.checkbox("Select assemblies to process:", choices=site_options))
+                    if not runtime_allowed:
+                        self.ui.log("No assemblies selected. Exiting.")
+                        return
+                else:
+                    # Auto mode: process everything fetched
+                    runtime_allowed = site_options
             
             matched_parts = []
             skipped_matching = 0

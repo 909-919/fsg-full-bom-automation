@@ -15,6 +15,8 @@ class Config:
     test_limit: int = 3
     dry_run: bool = False
     default_system: str = ""
+    target_file: str = ""
+    auto_confirm: bool = False
     allowed_assemblies: list[str] = field(default_factory=list)
     log_file: str = "bom_log.txt"
     boms_dir: str = "BOMs"
@@ -102,6 +104,8 @@ class Config:
         parser.add_argument("--dry-run", action="store_true", default=None, help="Simulate uploads without hitting the server")
         parser.add_argument("--limit", type=int, help="Upload limit for test mode")
         parser.add_argument("--system", help="Pre-select system code (e.g. BR, DT)")
+        parser.add_argument("--file", help="Pre-select BOM file name")
+        parser.add_argument("--yes", action="store_true", help="Auto-confirm all prompts (non-interactive)")
         
         args = parser.parse_args()
         
@@ -122,6 +126,10 @@ class Config:
             self.test_limit = args.limit
         if args.system:
             self.default_system = args.system.upper()
+        if args.file:
+            self.target_file = args.file
+        if args.yes:
+            self.auto_confirm = True
         
         if args.set_password:
             self._store_password()
