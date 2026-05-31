@@ -32,8 +32,8 @@ class Config:
     comments_max_length: int = 40
 
     def load(self):
-        # Explicitly reload from .env
-        load_dotenv(override=True)
+        # Load from .env, but do not override existing environment variables
+        load_dotenv(override=False)
         
         # 1. Credentials
         self.team_id = os.getenv("TEAM_ID", self.team_id).strip()
