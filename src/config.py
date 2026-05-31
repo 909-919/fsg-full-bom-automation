@@ -14,6 +14,7 @@ class Config:
     test_mode: bool = True
     test_limit: int = 3
     dry_run: bool = False
+    ci_mode: bool = False
     default_system: str = ""
     target_file: str = ""
     auto_confirm: bool = False
@@ -49,6 +50,8 @@ class Config:
         # 2. Boolean flags
         if os.getenv("TEST_MODE") is not None:
             self.test_mode = os.getenv("TEST_MODE", "").lower() == "true"
+        if os.getenv("CI_MODE") is not None:
+            self.ci_mode = os.getenv("CI_MODE", "").lower() == "true"
         if os.getenv("DRY_RUN") is not None:
             self.dry_run = os.getenv("DRY_RUN", "").lower() == "true"
         if os.getenv("AUTO_CONFIRM") is not None:

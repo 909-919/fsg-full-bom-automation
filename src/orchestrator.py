@@ -88,116 +88,120 @@ class BOMAutomation:
                 return
 
         # 4. Browser Session
-        with FSGBrowser(self.config) as browser:
-            if not browser.login():
-                self.ui.log("Manual login required. Please login and navigate to BOM page.")
-            
-            browser.goto_bom()
-            if not self.config.auto_confirm:
-                self.ui.console.input("\nPress ENTER when ready on BOM page...")
-            
-            # Fetch Options & Match Assemblies
-            sys_label = self.matcher.get_system_label(run_system)
-            site_options = browser.fetch_site_options(sys_label)
-            
-            if not site_options:
-                self.ui.log("Could not fetch site options from the server.", "ERROR")
-                return
-
-            # Match and Whitelist
-            runtime_allowed = []
-            if not self.config.allowed_assemblies:
+        if self.config.ci_mode:
+            self.ui.log("CI Mode active: Skipping browser session.")
+        else:
+            with FSGBrowser(self.config) as browser:
+                if not browser.login():
+                    self.ui.log("Manual login required. Please login and navigate to BOM page.")
+                
+                browser.goto_bom()
                 if not self.config.auto_confirm:
-                    runtime_allowed = self.ui.prompt_ask(questionary.checkbox("Select assemblies to process:", choices=site_options))
-                    if not runtime_allowed:
-                        self.ui.log("No assemblies selected. Exiting.")
-                        return
+                    self.ui.console.input("\nPress ENTER when ready on BOM page...")
+                
+                # Fetch Options & Match Assemblies
+                sys_label = self.matcher.get_system_label(run_system)
+                site_options = browser.fetch_site_options(sys_label)
+                
+                if not site_options:
+                    self.ui.log("Could not fetch site options from the server.", "ERROR")
+                    return
+
+                # Match and Whitelist
+                runtime_allowed = []
+                if not self.config.allowed_assemblies:
+                    if not self.config.auto_confirm:
+                        runtime_allowed = self.ui.prompt_ask(questionary.checkbox("Select assemblies to process:", choices=site_options))
+                        if not runtime_allowed:
+                            self.ui.log("No assemblies selected. Exiting.")
+                            return
+                    else:
+                        # Auto mode: process everything fetched
+                        runtime_allowed = site_options
+                
+                matched_parts = []
+                skipped_matching = 0
+                for p in parts:
+                    resolved = self.matcher.resolve_label(p['assembly'], site_options, runtime_allowed or self.config.allowed_assemblies)
+                    if resolved:
+                        p['assembly'] = resolved
+                        p['system_label'] = self.matcher.get_system_label(p['system'])
+                        matched_parts.append(p)
+                    else:
+                        skipped_matching += 1
+                
+                self.ui.log("Assembly Matching Summary:")
+                self.ui.log(f"  • Parts matching selected assemblies: {len(matched_parts)}")
+                self.ui.log(f"  • Parts skipped (no assembly match): {skipped_matching}")
+
+                if not matched_parts:
+                    self.ui.log("No parts matched the selected assemblies. Exiting.", "ERROR")
+                    return
+
+                if self.config.test_mode:
+                    limit = min(self.config.test_limit, len(matched_parts))
+                    matched_parts = matched_parts[:limit]
+                    self.ui.log(f"Test Mode active: will attempt to upload {limit} parts.")
                 else:
-                    # Auto mode: process everything fetched
-                    runtime_allowed = site_options
-            
-            matched_parts = []
-            skipped_matching = 0
-            for p in parts:
-                resolved = self.matcher.resolve_label(p['assembly'], site_options, runtime_allowed or self.config.allowed_assemblies)
-                if resolved:
-                    p['assembly'] = resolved
-                    p['system_label'] = self.matcher.get_system_label(p['system'])
-                    matched_parts.append(p)
-                else:
-                    skipped_matching += 1
-            
-            self.ui.log("Assembly Matching Summary:")
-            self.ui.log(f"  • Parts matching selected assemblies: {len(matched_parts)}")
-            self.ui.log(f"  • Parts skipped (no assembly match): {skipped_matching}")
+                    self.ui.log(f"Will attempt to upload all {len(matched_parts)} matched parts.")
 
-            if not matched_parts:
-                self.ui.log("No parts matched the selected assemblies. Exiting.", "ERROR")
-                return
+                # Deduplication
+                self.ui.log("Fetching existing parts from FSG for deduplication...")
+                existing = browser.scrape_existing_parts(self.matcher)
+                self.ui.log(f"Found {len(existing)} existing parts on the website.")
 
-            if self.config.test_mode:
-                limit = min(self.config.test_limit, len(matched_parts))
-                matched_parts = matched_parts[:limit]
-                self.ui.log(f"Test Mode active: will attempt to upload {limit} parts.")
-            else:
-                self.ui.log(f"Will attempt to upload all {len(matched_parts)} matched parts.")
-
-            # Deduplication
-            self.ui.log("Fetching existing parts from FSG for deduplication...")
-            existing = browser.scrape_existing_parts(self.matcher)
-            self.ui.log(f"Found {len(existing)} existing parts on the website.")
-
-            # 5. Upload Loop
-            start_time = time.time()
-            live, status_table, progress, task_id = self.ui.create_dashboard(len(matched_parts))
-            
-            with live:
-                for i, part in enumerate(matched_parts):
-                    # Canonical key match
-                    # To handle site-wide inconsistencies (where site system code differs from Excel),
-                    # we compare primarily based on assembly and part name.
-                    part_norm = self.matcher._normalize(part['part'])
-                    asm_norm = self.matcher._normalize(part['assembly'])
-                    
-                    found_duplicate = False
-                    for existing_key, existing_data in existing.items():
-                        ex_part = self.matcher._normalize(existing_data.get('part', ''))
-                        ex_asm = self.matcher._normalize(existing_data.get('assembly', ''))
+                # 5. Upload Loop
+                start_time = time.time()
+                live, status_table, progress, task_id = self.ui.create_dashboard(len(matched_parts))
+                
+                with live:
+                    for i, part in enumerate(matched_parts):
+                        # Canonical key match
+                        # To handle site-wide inconsistencies (where site system code differs from Excel),
+                        # we compare primarily based on assembly and part name.
+                        part_norm = self.matcher._normalize(part['part'])
+                        asm_norm = self.matcher._normalize(part['assembly'])
                         
-                        # Match if part name matches exactly
-                        if ex_part == part_norm:
-                            # If assembly is also known, check it too
-                            if asm_norm and ex_asm and asm_norm != ex_asm:
-                                continue
-                            found_duplicate = True
-                            self.ui.log(f"Row {part['row']}: Found duplicate match: Excel='{part['part']}' vs Site='{existing_data.get('part')}'", "SKIP")
-                            break
-                    
-                    if found_duplicate:
-                        status_table.add_row(str(part['row']), part['part'], "[blue]SKIP[/]", "Duplicate (already on site)")
-                        self.ui.log(f"Row {part['row']}: Skipped duplicate '{part['part']}'", "SKIP")
+                        found_duplicate = False
+                        for existing_key, existing_data in existing.items():
+                            ex_part = self.matcher._normalize(existing_data.get('part', ''))
+                            ex_asm = self.matcher._normalize(existing_data.get('assembly', ''))
+                            
+                            # Match if part name matches exactly
+                            if ex_part == part_norm:
+                                # If assembly is also known, check it too
+                                if asm_norm and ex_asm and asm_norm != ex_asm:
+                                    continue
+                                found_duplicate = True
+                                self.ui.log(f"Row {part['row']}: Found duplicate match: Excel='{part['part']}' vs Site='{existing_data.get('part')}'", "SKIP")
+                                break
+                        
+                        if found_duplicate:
+                            status_table.add_row(str(part['row']), part['part'], "[blue]SKIP[/]", "Duplicate (already on site)")
+                            self.ui.log(f"Row {part['row']}: Skipped duplicate '{part['part']}'", "SKIP")
+                            self.ui.update_eta(progress, task_id, start_time, i + 1, len(matched_parts))
+                            progress.update(task_id, advance=1)
+                            self._smart_delay(self.config.base_delay)
+                            continue
+
+                        if self.config.dry_run:
+                            status_table.add_row(str(part['row']), part['part'], "[magenta]DRY[/]", "Dry run - no upload")
+                            self.ui.log(f"Row {part['row']}: Dry run - would upload '{part['part']}'", "DRY")
+                        else:
+                            try:
+                                browser.create_part(part)
+                                status_table.add_row(str(part['row']), part['part'], "[green]OK[/]", "Created")
+                                self.excel.mark_row_status(filepath, part['row'], "OK")
+                                self.ui.log(f"Row {part['row']}: Created '{part['part']}'", "OK")
+                                existing[self.matcher.canonical_key(part['system'], part['assembly'], part['part'])] = part
+                            except Exception as e:
+                                status_table.add_row(str(part['row']), part['part'], "[red]ERR[/]", str(e))
+                                self.excel.mark_row_status(filepath, part['row'], "ERR")
+                                self.ui.log(f"Row {part['row']}: Error creating '{part['part']}': {e}", "ERROR")
+
                         self.ui.update_eta(progress, task_id, start_time, i + 1, len(matched_parts))
                         progress.update(task_id, advance=1)
                         self._smart_delay(self.config.base_delay)
-                        continue
 
-                    if self.config.dry_run:
-                        status_table.add_row(str(part['row']), part['part'], "[magenta]DRY[/]", "Dry run - no upload")
-                        self.ui.log(f"Row {part['row']}: Dry run - would upload '{part['part']}'", "DRY")
-                    else:
-                        try:
-                            browser.create_part(part)
-                            status_table.add_row(str(part['row']), part['part'], "[green]OK[/]", "Created")
-                            self.excel.mark_row_status(filepath, part['row'], "OK")
-                            self.ui.log(f"Row {part['row']}: Created '{part['part']}'", "OK")
-                            existing[self.matcher.canonical_key(part['system'], part['assembly'], part['part'])] = part
-                        except Exception as e:
-                            status_table.add_row(str(part['row']), part['part'], "[red]ERR[/]", str(e))
-                            self.excel.mark_row_status(filepath, part['row'], "ERR")
-                            self.ui.log(f"Row {part['row']}: Error creating '{part['part']}': {e}", "ERROR")
-
-                    self.ui.update_eta(progress, task_id, start_time, i + 1, len(matched_parts))
-                    progress.update(task_id, advance=1)
-                    self._smart_delay(self.config.base_delay)
 
         self.ui.log("Automation finished.")

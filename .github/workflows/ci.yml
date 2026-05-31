@@ -74,6 +74,7 @@ jobs:
           os.environ['TEAM_ID'] = '999'
           os.environ['TEST_MODE'] = 'true'
           os.environ['DRY_RUN'] = 'true'
+          os.environ['CI_MODE'] = 'true'
 
           if 'main' in sys.modules:
               del sys.modules['main']
