@@ -197,7 +197,7 @@ class ExcelProcessor:
             # Normalize system code (e.g., "C&B" -> "FR")
             if matcher:
                 sys_val = matcher.normalize_system_code(sys_val)
-                
+            
             part_val = str(row.iloc[col_map["part"]] if col_map["part"] is not None else "").strip()
             
             if not sys_val or sys_val == "NAN" or not part_val or part_val == "NAN":
