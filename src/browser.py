@@ -109,7 +109,8 @@ class FSGBrowser:
             self.page.wait_for_timeout(200)
 
             if system_label:
-                self._force_system_change(system_label)
+                if not self._force_system_change(system_label):
+                    return []
                 self._wait_for_assembly_list_to_settle()
 
             options_data = self.page.locator("#DTE_Field_assembly option").evaluate_all(
@@ -249,6 +250,8 @@ class FSGBrowser:
         # it to dot-decimal so the website's plain text cost field gets a
         # clean number. Anything that isn't a plain "digits,digits" value is
         # left untouched rather than guessed at.
+        if re.fullmatch(r"\d{1,3}(?:\.\d{3})+,\d+", value):
+            return value.replace(".", "").replace(",", ".")
         if re.fullmatch(r"\d+,\d+", value):
             return value.replace(",", ".")
         return value
@@ -343,11 +346,6 @@ class FSGBrowser:
         if item.get('custom_id'):
             cloc = self.page.locator("#DTE_Field_part_no_custom")
             cloc.fill(item['custom_id'])
-            self.page.wait_for_timeout(100)
-            cloc.press("Enter")
-            self.page.wait_for_timeout(100)
-            self.page.keyboard.press("Escape")
-            self.page.wait_for_timeout(100)
 
         # 5. Costs & Emissions (neu in diesem Jahr, erscheinen nicht bei
         # jedem System/Make-Buy - daher nur ausfüllen, wenn das Feld
@@ -365,7 +363,7 @@ class FSGBrowser:
         self.page.get_by_text("Create", exact=True).first.click(force=True, timeout=10000)
 
         # 6. FAIL-FAST Polling Loop
-        # Nutzt config.request_timeout (Standard 50s) statt einer fest
+        # Nutzt config.request_timeout (Standard 30s) statt einer fest
         # codierten Wartezeit - der Server kann gerade mit den neuen
         # Costs/Emissions-Validierungen mal länger brauchen ("processing").
         error_keywords = ("required", "too small", "too long", "invalid", "minimum", "maximum", "pflicht", "ungültig")

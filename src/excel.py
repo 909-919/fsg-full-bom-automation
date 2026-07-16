@@ -180,7 +180,7 @@ class ExcelProcessor:
             "quantity": find_col(["part_quantity", "quantity", "qty", "amount"]),
             "makebuy": find_col(["make o. buy", "m/b", "makebuy"]),
             "comments": find_col(["part_comments", "comments", "notes", "comment"]),
-            "custom_id": find_col(["customid", "custom_id", "custom id", "id"]),
+            "custom_id": find_col(["customid", "custom_id", "custom id"]),
             "costs": find_col(["cost", "costs"]),
             "emissions": find_col(["emission", "emissions"]),
         }
