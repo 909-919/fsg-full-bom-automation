@@ -1,4 +1,9 @@
+import os
+import sys
 from unittest.mock import MagicMock
+
+# Ensure the src directory is in the path.
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.browser import FSGBrowser
 
